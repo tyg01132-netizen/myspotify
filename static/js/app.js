@@ -98,6 +98,27 @@ const App = (() => {
     });
     document.addEventListener('contextmenu',e=>e.preventDefault());
 
+    // Auto-update check
+    setTimeout(async () => {
+      try {
+        const v = await fetch('/api/version').then(r=>r.json());
+        if (v.has_update && v.update_url) {
+          const rack = document.getElementById('toast-rack');
+          if (!rack) return;
+          const el = document.createElement('div');
+          el.className = 'toast t-info update-toast';
+          el.style.cssText = 'cursor:pointer;max-width:300px;flex-direction:column;align-items:flex-start;gap:4px';
+          el.innerHTML = `
+            <div style="font-weight:700;font-size:13px">⬆ Update available — v${v.latest}</div>
+            <div style="font-size:12px;color:var(--i2)">Click to download the new version</div>`;
+          el.addEventListener('click', () => window.open(v.update_url, '_blank'));
+          rack.appendChild(el);
+          // Keep update toast for longer
+          setTimeout(() => { el.classList.add('out'); el.addEventListener('animationend', ()=>el.remove()); }, 15000);
+        }
+      } catch {}
+    }, 4000);
+
     // Auth
     const params=new URLSearchParams(window.location.search);
     if(params.get('auth_error')){ toast('Login failed: '+params.get('auth_error'),'err'); history.replaceState({},'','/'); }
