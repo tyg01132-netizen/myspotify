@@ -96,16 +96,13 @@ const Visualizer = (() => {
     if (!el) return;
     el.classList.remove('closing');
     el.style.display = 'block';
-    // Update content
     _updateMusicanContent();
-    // Set mode class
     el.classList.toggle('mode-lyrics', _mode === 'lyrics');
-    // Update mode button label
+    document.body.classList.add('musican-open');
+    document.body.classList.toggle('musican-viz', _mode === 'visualizer');
     const modeBtn = document.getElementById('musican-mode-btn');
     if (modeBtn) modeBtn.textContent = _mode === 'lyrics' ? '🎵 Visualizer' : '🎤 Lyrics';
-    // Fetch lyrics for lyrics mode
     if (_mode === 'lyrics') _loadMusicanLyrics();
-    // Resize canvas
     resize();
     document.getElementById('btn-musican')?.classList.add('on');
     document.getElementById('pb-viz-btn')?.classList.add('on');
@@ -123,6 +120,7 @@ const Visualizer = (() => {
       el.classList.remove('closing');
     }, { once: true });
     if (_animId) { cancelAnimationFrame(_animId); _animId = null; }
+    document.body.classList.remove('musican-open', 'musican-viz');
     document.getElementById('btn-musican')?.classList.remove('on');
     document.getElementById('pb-viz-btn')?.classList.remove('on');
   }

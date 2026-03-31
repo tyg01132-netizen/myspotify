@@ -282,6 +282,31 @@ const Customize = (() => {
     document.getElementById('home-customize-btn')?.addEventListener('click', () =>
       document.getElementById('customize-panel').classList.add('open')
     );
+
+    // ── Titlebar double-click toggle ──────────────
+    document.getElementById('titlebar')?.addEventListener('dblclick', e => {
+      if (e.target.closest('#island,#tb-right,#fallback-nav')) return;
+      const hidden = !document.body.classList.contains('titlebar-hidden');
+      document.body.classList.toggle('titlebar-hidden', hidden);
+      set('titlebar_hidden', hidden);
+      App.toast(hidden ? 'Titlebar hidden — double-click top to restore' : 'Titlebar restored', 'info');
+    });
+    // Also restore by double-clicking very top of screen when hidden
+    document.addEventListener('dblclick', e => {
+      if (!document.body.classList.contains('titlebar-hidden')) return;
+      if (e.clientY < 16) {
+        document.body.classList.remove('titlebar-hidden');
+        set('titlebar_hidden', false);
+      }
+    });
+    if (get('titlebar_hidden', false)) document.body.classList.add('titlebar-hidden');
+
+    // ── Player bar toggle ─────────────────────────
+    const pbHidden = get('pb_hidden', false);
+    if (pbHidden) {
+      document.body.classList.add('pb-hidden');
+      document.getElementById('player-bar').style.display = 'none';
+    }
   }
 
   return { init, get, getPref, set, applyAccent, applyPbStyle, applyIsland, applyPlayerBarToggles, applyHomeLayout };

@@ -75,8 +75,12 @@ const App = (() => {
     document.getElementById('customize-close')?.addEventListener('click',()=>document.getElementById('customize-panel').classList.remove('open'));
     document.getElementById('home-customize-btn')?.addEventListener('click',()=>document.getElementById('customize-panel').classList.add('open'));
 
-    // Queue/devices panels
-    document.getElementById('nav-queue')?.addEventListener('click', e=>{e.preventDefault();e.stopPropagation();QueueComp.toggle();});
+    // Queue/devices — handled via island delegation in player.js
+    // But also wire standalone nav-queue button (fallback nav)
+    document.getElementById('nav-queue')?.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      QueueComp.toggle();
+    });
 
     // AI DJ
     document.getElementById('aidj-play-btn')?.addEventListener('click', loadAiDj);

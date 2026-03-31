@@ -122,39 +122,82 @@ body.ambient-off .bg-layer,body.ambient-off #bg-vignette{display:none}
 #lyrics-fs-scroll .ly-line{font-family:var(--fd);font-size:clamp(20px,2.8vw,32px);font-weight:700;color:rgba(255,255,255,.2);line-height:1.45;cursor:pointer;padding:3px 2px;transition:color .4s ease,transform .4s ease}
 #lyrics-fs-scroll .ly-line.active{color:var(--i0);transform:translateX(10px)}
 #lyrics-fs-scroll .ly-line:hover:not(.active){color:rgba(255,255,255,.45)}
-body.lfs-open #player-bar{display:none!important}
+body.lfs-open #player-bar{
+  opacity:0!important;transform:translateY(100%)!important;
+  pointer-events:none!important;transition:opacity .3s ease,transform .3s ease;
+}
+body.musican-open:not(.musican-viz) #player-bar{
+  opacity:0!important;transform:translateY(100%)!important;
+  pointer-events:none!important;transition:opacity .3s ease,transform .3s ease;
+}
+#player-bar{transition:opacity .3s ease,transform .3s ease}
+
+/* Player bar toggleable via settings */
+body.pb-hidden #player-bar{display:none!important}
+body.pb-hidden{--pb-h:0px}
 
 /* ── TITLEBAR ─────────────────────────────────── */
-#titlebar{position:relative;z-index:400;height:var(--tb-h);display:flex;align-items:center;padding:0 12px;background:rgba(6,6,8,.88);backdrop-filter:blur(60px) saturate(200%);border-bottom:1px solid var(--l1);flex-shrink:0;user-select:none}
+#titlebar{
+  position:relative;z-index:400;
+  height:var(--tb-h);
+  display:flex;align-items:center;
+  padding:0 12px;
+  background:rgba(6,6,8,.88);
+  backdrop-filter:blur(60px) saturate(200%);
+  border-bottom:1px solid var(--l1);
+  flex-shrink:0;user-select:none;
+  transition:height .3s ease,opacity .3s ease;
+}
+/* Titlebar collapsed — double-click to toggle */
+body.titlebar-hidden #titlebar{
+  height:0;padding:0;overflow:visible;border-bottom:none;
+  opacity:0;pointer-events:none;
+}
+body.titlebar-hidden{--tb-h:0px}
+body.titlebar-hidden #island{top:6px}
+/* Show hint to restore titlebar */
+body.titlebar-hidden::after{
+  content:'Double-click top bar to restore UI';
+  position:fixed;bottom:calc(var(--pb-h) + 8px);left:50%;
+  transform:translateX(-50%);
+  font-size:10px;color:rgba(255,255,255,.18);
+  pointer-events:none;z-index:1000;
+  animation:pulse 3s ease-in-out 2s infinite alternate;
+}
 
 /* ══════════════════════════════════════════════
-   DYNAMIC ISLAND — DEFINITIVE FIX
-   position:fixed, z-index:9999, never clips
+   DYNAMIC ISLAND — FINAL FIX
+   top = fixed distance from top of screen
+   grows DOWNWARD only — never clips above
 ══════════════════════════════════════════════ */
 #island{
   position:fixed;
   left:50%;
-  top:23px; /* half of 46px titlebar */
-  transform:translateX(-50%) translateY(-50%);
-  z-index:9999; /* above everything */
+  /* top = 8px from viewport top — grows DOWN from here */
+  top:8px;
+  transform:translateX(-50%);
+  transform-origin:top center;
+  z-index:9999;
   background:rgba(8,8,14,.97);
   border:1px solid rgba(255,255,255,.1);
   border-radius:100px;
-  overflow:hidden; /* clips faces but NOT buttons - buttons use z-index */
+  overflow:hidden;
   cursor:pointer;
   box-shadow:0 2px 20px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.04);
-  /* Spring animation for morphing */
-  transition:width .4s cubic-bezier(.34,1.56,.64,1),height .4s cubic-bezier(.34,1.56,.64,1),border-radius .4s cubic-bezier(.34,1.56,.64,1),box-shadow .4s ease;
+  transition:
+    width  .42s cubic-bezier(.34,1.56,.64,1),
+    height .42s cubic-bezier(.34,1.56,.64,1),
+    border-radius .42s cubic-bezier(.34,1.56,.64,1),
+    box-shadow .42s ease;
   will-change:width,height;
-  /* idle size */
-  width:150px;height:30px;
+  width:152px;height:30px;
 }
-#island[data-state="playing"]{width:280px;height:36px}
+#island[data-state="playing"]{width:282px;height:36px}
 #island[data-state="expanded"]{
   width:min(700px,calc(100vw - 160px));
   height:214px;
   border-radius:26px;
-  box-shadow:0 16px 60px rgba(0,0,0,.8),0 0 50px rgba(var(--ar),var(--ag),var(--ab),.18),0 0 0 1px rgba(255,255,255,.08);
+  box-shadow:0 16px 60px rgba(0,0,0,.8),0 0 50px rgba(var(--ar),var(--ag),var(--ab),.2),0 0 0 1px rgba(255,255,255,.09);
   overflow:hidden;
 }
 /* Faces — absolutely positioned, only one visible at a time */
@@ -643,3 +686,43 @@ body.titlebar-hidden #fallback-nav{top:5px}
   border-radius:3px;padding:0 2px;
   line-height:10px;
 }
+
+/* ── SEARCH IMPROVEMENTS ─────────────────────────── */
+.sp-top-hit{display:flex;align-items:center;gap:16px;padding:14px;background:var(--g2);border:1px solid var(--l2);border-radius:var(--r16);cursor:pointer;transition:background .15s,transform .15s var(--esp)}
+.sp-top-hit:hover{background:var(--g3);transform:scale(1.01)}
+.sp-top-img{width:64px;height:64px;border-radius:var(--r10);object-fit:cover;background:var(--b3);flex-shrink:0}
+.sp-top-img.sp-art-r{border-radius:50%}
+.sp-top-info{flex:1;overflow:hidden}
+.sp-top-name{font-family:var(--fd);font-size:18px;font-weight:700;letter-spacing:-.02em;margin-bottom:4px}
+.sp-top-sub{font-size:13px;color:var(--i2);margin-bottom:8px}
+.sp-dur{font-size:12px;font-family:var(--fm);color:var(--i3);flex-shrink:0;white-space:nowrap}
+.recent-chip{display:flex;align-items:center;gap:8px;background:var(--g2);border:1px solid var(--l1);border-radius:var(--rF);padding:7px 14px;font-size:13px;cursor:pointer;transition:background .12s}
+.recent-chip:hover{background:var(--g3)}.chip-x{color:var(--i3);font-size:11px;cursor:pointer;padding:0 2px;transition:color .1s}.chip-x:hover{color:var(--red)}
+
+/* ── QUEUE IMPROVEMENTS ──────────────────────────── */
+.q-num{font-size:11px;font-family:var(--fm);color:var(--i4);min-width:18px;text-align:center;flex-shrink:0}
+.q-dur{font-size:11px;font-family:var(--fm);color:var(--i3);flex-shrink:0;white-space:nowrap}
+
+/* ── VISUAL POLISH ────────────────────────────────── */
+/* Better home section titles */
+.sec-title{
+  font-family:var(--fd);font-size:19px;font-weight:700;
+  letter-spacing:-.025em;
+  background:linear-gradient(135deg,var(--i0),var(--i1));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+/* Better card hover shadows */
+.mcard:hover{box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 20px rgba(var(--ar),var(--ag),var(--ab),.1)}
+/* Better bento grid shadows */
+.bc:hover{box-shadow:0 8px 40px rgba(0,0,0,.65),0 0 24px rgba(var(--ar),var(--ag),var(--ab),.1)}
+/* Better quick items */
+.quick-item{border-radius:var(--r12);transition:background .14s,transform .12s var(--esp),box-shadow .14s}
+.quick-item:hover{box-shadow:0 4px 16px rgba(0,0,0,.4)}
+/* Island expanded — nicer shadow on art */
+.isl-big-art{box-shadow:0 6px 24px rgba(0,0,0,.55),0 0 20px rgba(var(--ar),var(--ag),var(--ab),.2)}
+/* Nicer NP art shadow */
+.np-art-wrap{box-shadow:0 12px 50px rgba(0,0,0,.6),0 0 40px rgba(var(--ar),var(--ag),var(--ab),.18)}
+/* Player bar art shadow */
+.pb-art-wrap{box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 12px rgba(var(--ar),var(--ag),var(--ab),.15)}
+/* Scroll gutter color */
+#view-home .vscroll,#view-search .vscroll,#view-library .vscroll,#view-settings .vscroll{scrollbar-color:rgba(255,255,255,.08) transparent}
