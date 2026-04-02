@@ -118,6 +118,7 @@ const SearchView = (() => {
             <div class="sp-item-sub">${e(t.artists?.map(a=>a.name).join(', '))} · ${e(t.album?.name||'')}</div>
           </div>
           <div class="sp-dur">${API.ms2t(t.duration_ms||0)}</div>
+          <button class="sp-q-btn" data-uri="${t.uri}" title="Add to queue">+Q</button>
         </div>`;
       });
       html += `</div>`;
@@ -186,10 +187,22 @@ const SearchView = (() => {
     results.querySelectorAll('.sp-item').forEach(item => {
       item.addEventListener('click', () => {
         const { type, id, uri } = item.dataset;
-        if (type === 'track' && uri) { Player.playTrack(uri); return; }
-        if (type === 'artist')  App.navigate('artist', id);
+        if (type === 'track') {
+          if (uri) Player.playTrack(uri);
+          return;
+        }
+        if (type === 'artist')        App.navigate('artist', id);
         else if (type === 'album')    App.navigate('album', id);
         else if (type === 'playlist') App.navigate('playlist', id);
+      });
+    });
+
+    // Queue buttons in search results
+    results.querySelectorAll('.sp-q-btn').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.stopPropagation();
+        await API.addToQueue(btn.dataset.uri);
+        App.toast('Added to queue ✓', 'ok');
       });
     });
   }

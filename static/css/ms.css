@@ -137,33 +137,33 @@ body.pb-hidden #player-bar{display:none!important}
 body.pb-hidden{--pb-h:0px}
 
 /* ── TITLEBAR ─────────────────────────────────── */
+/* ── TITLEBAR — transparent overlay, always on top ── */
 #titlebar{
-  position:relative;z-index:400;
+  position:fixed;
+  top:0;left:0;right:0;
   height:var(--tb-h);
+  z-index:300; /* below island (9999) but above stage */
   display:flex;align-items:center;
-  padding:0 12px;
-  background:rgba(6,6,8,.88);
-  backdrop-filter:blur(60px) saturate(200%);
-  border-bottom:1px solid var(--l1);
+  padding:0 16px;
+  /* Transparent by default — only shows when hovered */
+  background:transparent;
+  border-bottom:none;
   flex-shrink:0;user-select:none;
-  transition:height .3s ease,opacity .3s ease;
+  transition:background .3s ease;
+  pointer-events:none; /* allows clicks through */
 }
-/* Titlebar collapsed — double-click to toggle */
-body.titlebar-hidden #titlebar{
-  height:0;padding:0;overflow:visible;border-bottom:none;
-  opacity:0;pointer-events:none;
+/* Only the buttons are clickable */
+#titlebar > *{pointer-events:auto}
+/* Hover reveals subtle background */
+#titlebar:hover{
+  background:rgba(6,6,8,.72);
+  backdrop-filter:blur(40px);
 }
-body.titlebar-hidden{--tb-h:0px}
-body.titlebar-hidden #island{top:6px}
-/* Show hint to restore titlebar */
-body.titlebar-hidden::after{
-  content:'Double-click top bar to restore UI';
-  position:fixed;bottom:calc(var(--pb-h) + 8px);left:50%;
-  transform:translateX(-50%);
-  font-size:10px;color:rgba(255,255,255,.18);
-  pointer-events:none;z-index:1000;
-  animation:pulse 3s ease-in-out 2s infinite alternate;
-}
+/* Stage needs top padding to not be hidden under titlebar */
+#stage{padding-top:var(--tb-h)}
+/* Hidden state */
+body.titlebar-hidden #titlebar{opacity:0;pointer-events:none}
+body.titlebar-hidden #island{top:8px}
 
 /* ══════════════════════════════════════════════
    DYNAMIC ISLAND — FINAL FIX
@@ -726,3 +726,95 @@ body.titlebar-hidden #fallback-nav{top:5px}
 .pb-art-wrap{box-shadow:0 4px 16px rgba(0,0,0,.5),0 0 12px rgba(var(--ar),var(--ag),var(--ab),.15)}
 /* Scroll gutter color */
 #view-home .vscroll,#view-search .vscroll,#view-library .vscroll,#view-settings .vscroll{scrollbar-color:rgba(255,255,255,.08) transparent}
+
+/* ── NP VIEW hides bottom player bar (NP has own controls) ── */
+body.view-nowplaying #player-bar{
+  opacity:0;transform:translateY(8px);
+  pointer-events:none;transition:opacity .3s ease,transform .3s ease;
+}
+/* Titlebar: minimal/transparent when island is on */
+body:not(.titlebar-hidden) #titlebar{
+  background:rgba(6,6,8,.72);
+  backdrop-filter:blur(40px);
+}
+
+/* ── TRACK ROW ACTIONS ───────────────────────────── */
+.tr-actions{display:flex;align-items:center;gap:3px;justify-content:flex-end}
+.tr-q-btn{
+  display:none;align-items:center;justify-content:center;
+  width:24px;height:24px;border-radius:6px;
+  background:var(--g2);border:1px solid var(--l1);
+  color:var(--i3);font-size:9px;font-weight:700;
+  cursor:pointer;transition:background .1s,color .1s;
+}
+.tr:hover .tr-q-btn{display:flex}
+.tr-q-btn:hover{background:var(--g3);color:var(--acc)}
+.tr-more{display:none;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;color:var(--i3);cursor:pointer;transition:background .1s,color .1s;background:none;border:none}
+.tr:hover .tr-more{display:flex}
+.tr-more:hover{background:var(--g3);color:var(--i0)}
+
+/* ── SEARCH QUEUE BUTTON ─────────────────────────── */
+.sp-q-btn{
+  display:none;background:var(--g2);border:1px solid var(--l1);
+  border-radius:var(--rF);padding:3px 9px;font-size:11px;font-weight:700;
+  color:var(--i3);cursor:pointer;transition:all .12s;white-space:nowrap;flex-shrink:0;
+}
+.sp-item:hover .sp-q-btn{display:block}
+.sp-q-btn:hover{background:var(--acc);color:#000;border-color:transparent}
+
+/* ── MINI VIZ — same pill style as island EQ ─────── */
+#pb-mini-viz canvas{display:none}
+.pb-mini-viz.show{
+  display:flex;align-items:flex-end;gap:2px;height:16px;
+  padding:0 4px;
+}
+/* Replace canvas with CSS bars */
+.pb-mini-viz.show::after{
+  content:'';display:none; /* bars handled by canvas */
+}
+
+/* ── TLIST header fix for new actions column ─────── */
+.tlist-hd{grid-template-columns:26px 42px 1fr 1fr 52px 58px!important}
+
+/* ── ISLAND PLAYING STATE — always visible ───────── */
+/* Make idle state subtle so playing state is prominent */
+#island[data-state="idle"] .isl-brand{opacity:.7}
+#island[data-state="playing"]{
+  box-shadow:0 2px 20px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.07),0 0 20px rgba(var(--ar),var(--ag),var(--ab),.08);
+}
+
+/* ── TITLEBAR TOGGLE BUTTON ──────────────────────── */
+.tb-hide-btn{
+  display:flex;align-items:center;gap:5px;
+  background:none;border:1px solid var(--l1);border-radius:var(--rF);
+  padding:4px 10px;font-size:10px;font-weight:600;color:var(--i3);
+  cursor:pointer;transition:background .12s,color .12s;text-transform:uppercase;letter-spacing:.06em;
+}
+.tb-hide-btn:hover{background:var(--g2);color:var(--i1)}
+
+/* ── SETTINGS IMPROVEMENTS ───────────────────────── */
+.sg-hd{background:rgba(var(--ar),var(--ag),var(--ab),.04)!important}
+
+/* ── ISLAND NOTIFICATIONS ────────────────────────── */
+@keyframes notif-in {
+  from { opacity:0; transform:translateX(-50%) scale(.85) translateY(-6px); }
+  to   { opacity:1; transform:translateX(-50%) scale(1)   translateY(0);    }
+}
+@keyframes notif-out {
+  to { opacity:0; transform:translateX(-50%) scale(.9) translateY(-4px); }
+}
+
+/* ── STAGE TOP PADDING — content not hidden behind transparent titlebar ── */
+#stage{padding-top:0}
+.vscroll{padding-top:calc(var(--tb-h) + 16px)!important}
+#view-playlist .vscroll.no-pad,
+#view-artist   .vscroll.no-pad{padding-top:0!important}
+
+/* When player bar hidden — musican art repositions */
+body.pb-hidden #musican-art{bottom:36px}
+body.pb-hidden #musican-info{bottom:40px}
+body.pb-hidden #musican-hint{bottom:12px}
+
+/* ── MUSICAN — full quality ──────────────────────── */
+#musican-canvas{image-rendering:pixelated}
+#musican{background:#040408}

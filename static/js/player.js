@@ -15,8 +15,8 @@ const Player = (() => {
   function init() {
     // ── Player bar ──────────────────────────────
     $('pb-play')?.addEventListener('click', togglePlay);
-    $('pb-prev')?.addEventListener('click', ()=>API.prevTrack());
-    $('pb-next')?.addEventListener('click', ()=>API.nextTrack());
+    $('pb-prev')?.addEventListener('click', sdkPrev);
+    $('pb-next')?.addEventListener('click', sdkNext);
     $('pb-shuffle')?.addEventListener('click', toggleShuffle);
     $('pb-repeat')?.addEventListener('click', toggleRepeat);
     $('pb-like')?.addEventListener('click', toggleLike);
@@ -37,8 +37,8 @@ const Player = (() => {
 
     // ── Now Playing ─────────────────────────────
     $('np-play')?.addEventListener('click', togglePlay);
-    $('np-prev')?.addEventListener('click', ()=>API.prevTrack());
-    $('np-next')?.addEventListener('click', ()=>API.nextTrack());
+    $('np-prev')?.addEventListener('click', sdkPrev);
+    $('np-next')?.addEventListener('click', sdkNext);
     $('np-shuffle')?.addEventListener('click', toggleShuffle);
     $('np-repeat')?.addEventListener('click', toggleRepeat);
     $('np-like')?.addEventListener('click', toggleLike);
@@ -59,37 +59,37 @@ const Player = (() => {
     // And attach via capturing on the island, checking target
     const isl = $('island');
     if (isl) {
-      // All button clicks inside island
       isl.addEventListener('click', function(e) {
-        const btn = e.target.closest('.isl-btn, .isl-nav-btn, .isl-play-btn');
-        if (!btn) {
-          // Clicking the island background = expand/collapse
-          const state = isl.dataset.state;
-          if (state === 'playing')  { isl.dataset.state = 'expanded'; return; }
-          if (state === 'expanded') { isl.dataset.state = _playing ? 'playing' : 'idle'; return; }
+        e.stopPropagation();
+        const btn = e.target.closest('.isl-btn, .isl-play-btn, .isl-nav-btn');
+        if (btn) {
+          switch(btn.id) {
+            case 'isl-play':    togglePlay();    break;
+            case 'isl-prev':    sdkPrev();       break;
+            case 'isl-next':    sdkNext();       break;
+            case 'isl-shuffle': toggleShuffle(); break;
+            case 'isl-repeat':  toggleRepeat();  break;
+            case 'nav-queue':   QueueComp?.toggle(); break;
+          }
+          if (btn.dataset.view) {
+            App.navigate(btn.dataset.view);
+            isl.dataset.state = _playing ? 'playing' : 'idle';
+          }
           return;
         }
-        e.stopPropagation();
-        // Handle each button by id
-        const id = btn.id || btn.dataset.view;
-        switch(id) {
-          case 'isl-play':    togglePlay();    break;
-          case 'isl-prev':    API.prevTrack(); break;
-          case 'isl-next':    API.nextTrack(); break;
-          case 'isl-shuffle': toggleShuffle(); break;
-          case 'isl-repeat':  toggleRepeat();  break;
-        }
-        // Nav buttons
-        if (btn.dataset.view) {
-          App.navigate(btn.dataset.view);
-          isl.dataset.state = _playing ? 'playing' : 'idle';
-        }
-        if (btn.id === 'nav-queue') {
-          QueueComp?.toggle();
-          isl.dataset.state = _playing ? 'playing' : 'idle';
-        }
+        // Background click: always toggle expand ↔ playing/idle
+        isl.dataset.state = isl.dataset.state === 'expanded'
+          ? (_playing ? 'playing' : 'idle')
+          : 'expanded';
       });
     }
+    // Click on playing face info area → go to now playing
+    document.getElementById('iface-playing')?.addEventListener('click', e => {
+      if (!e.target.closest('.isl-btn,.isl-play-btn')) {
+        App.navigate('nowplaying');
+        document.getElementById('island').dataset.state = 'idle';
+      }
+    });
 
     // Lyrics FS close
     $('lyrics-fs-close')?.addEventListener('click', closeLyricsFs);
@@ -133,7 +133,17 @@ const Player = (() => {
     _t0 = Date.now();
     const track = state.track_window.current_track;
     if (!track) return;
+    const wasPlaying = document.body.classList.contains('playing');
     document.body.classList.toggle('playing', _playing);
+    // Show brief notification on play/pause
+    if (wasPlaying !== _playing && document.getElementById('island')?.dataset.state !== 'expanded') {
+      showIslandNotif(_playing ? 'Playing' : 'Paused', _playing ? '▶' : '⏸');
+    }
+    // ALWAYS update island state (not just on track change)
+    const isl = document.getElementById('island');
+    if (isl && isl.dataset.state !== 'expanded') {
+      isl.dataset.state = _playing ? 'playing' : 'idle';
+    }
     if (track.id !== _lastTrackId) { _lastTrackId = track.id; onTrackChange(track); }
     syncPlayBtns(); syncShuffleRepeat(); startLoop();
     QueueComp?.onState?.(state);
@@ -422,12 +432,29 @@ const Player = (() => {
     if(_raf) cancelAnimationFrame(_raf);
     if(!_playing){ updateBars(getPos()); return; }
     const tick=()=>{
-      const pos=getPos(); updateBars(pos); syncLyrics(pos);
+      const pos=getPos(); updateBars(pos); syncLyrics(pos); checkNextUp(pos);
       if(_playing) _raf=requestAnimationFrame(tick);
     };
     _raf=requestAnimationFrame(tick);
   }
   function getPos(){ return _playing?_pos0+(Date.now()-_t0):_pos0; }
+
+  let _nextUpShown = false;
+  function checkNextUp(pos) {
+    const dur = _state?.track_window?.current_track?.duration_ms || 0;
+    const remaining = dur - pos;
+    // Show "next up" when 15 seconds remain
+    if (remaining < 15000 && remaining > 12000 && !_nextUpShown && _playing) {
+      _nextUpShown = true;
+      const next = _state?.track_window?.next_tracks?.[0];
+      if (next) {
+        showIslandNotif(`Next: ${next.name}`, '⏭');
+        // Also show mini toast
+        App.toast(`Up next: ${next.name} — ${next.artists?.[0]?.name||''}`, 'info');
+      }
+    }
+    if (remaining > 20000) _nextUpShown = false;
+  }
 
   function updateBars(pos) {
     if(_barDrag) return;
@@ -493,6 +520,15 @@ const Player = (() => {
   }
 
   async function togglePlay(){ if(_sdk) await _sdk.togglePlay(); }
+
+  async function sdkNext(){
+    try { if(_sdk){ await _sdk.nextTrack(); return; } } catch{}
+    await API.nextTrack();
+  }
+  async function sdkPrev(){
+    try { if(_sdk){ await _sdk.previousTrack(); return; } } catch{}
+    await API.prevTrack();
+  }
 
   async function toggleShuffle(){
     if(!_state) return;
@@ -569,8 +605,8 @@ const Player = (() => {
     if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
     const{key,metaKey:m,ctrlKey:c}=e; const mod=m||c;
     if(key===' '&&!mod){ e.preventDefault(); togglePlay(); return; }
-    if(mod&&key==='ArrowRight'){ e.preventDefault(); API.nextTrack(); return; }
-    if(mod&&key==='ArrowLeft'){  e.preventDefault(); API.prevTrack(); return; }
+    if(mod&&key==='ArrowRight'){ e.preventDefault(); sdkNext(); return; }
+    if(mod&&key==='ArrowLeft'){  e.preventDefault(); sdkPrev(); return; }
     if(mod&&key==='ArrowUp'){    e.preventDefault(); setVol(Math.min(1,_vol+.05),true); return; }
     if(mod&&key==='ArrowDown'){  e.preventDefault(); setVol(Math.max(0,_vol-.05),true); return; }
     if(mod&&key==='f'){  e.preventDefault(); App.navigate('search'); return; }
@@ -606,6 +642,43 @@ const Player = (() => {
   function getDeviceId(){ return _devId; }
   function getState(){ return _state; }
   function isPlaying(){ return _playing; }
+
+  // ── Island mini-notifications ─────────────────
+  let _notifTimer = null;
+  function showIslandNotif(text, icon='') {
+    const isl = document.getElementById('island');
+    if (!isl || isl.dataset.state === 'expanded') return;
+    // Create or reuse notif pill
+    let notif = document.getElementById('isl-notif');
+    if (!notif) {
+      notif = document.createElement('div');
+      notif.id = 'isl-notif';
+      notif.style.cssText = [
+        'position:fixed;top:8px;left:50%;transform:translateX(-50%)',
+        'background:rgba(8,8,14,.97)',
+        'border:1px solid rgba(255,255,255,.15)',
+        'border-radius:100px',
+        'padding:6px 18px',
+        'font-size:12px;font-weight:600;color:#fff',
+        'z-index:9998',
+        'pointer-events:none',
+        'white-space:nowrap',
+        'display:flex;align-items:center;gap:8px',
+        'animation:notif-in .25s cubic-bezier(.34,1.56,.64,1)',
+        'box-shadow:0 4px 20px rgba(0,0,0,.6)',
+      ].join(';');
+      document.body.appendChild(notif);
+    }
+    notif.innerHTML = `${icon ? `<span>${icon}</span>` : ''}<span>${text}</span>`;
+    notif.style.display = 'flex';
+    notif.style.animation = 'none'; notif.offsetHeight;
+    notif.style.animation = 'notif-in .25s cubic-bezier(.34,1.56,.64,1)';
+    clearTimeout(_notifTimer);
+    _notifTimer = setTimeout(() => {
+      notif.style.animation = 'notif-out .25s ease forwards';
+      notif.addEventListener('animationend', () => { notif.style.display='none'; }, {once:true});
+    }, 1800);
+  }
 
   return { init,initSDK,playContext,playTrack,getDeviceId,getState,isPlaying,onNPOpen,startRadio,openLyricsFs,closeLyricsFs };
 })();

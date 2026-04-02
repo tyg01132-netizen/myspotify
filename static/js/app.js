@@ -76,10 +76,23 @@ const App = (() => {
     document.getElementById('home-customize-btn')?.addEventListener('click',()=>document.getElementById('customize-panel').classList.add('open'));
 
     // Queue/devices — handled via island delegation in player.js
-    // But also wire standalone nav-queue button (fallback nav)
+    // Wire standalone queue buttons (fallback nav + island)
     document.getElementById('nav-queue')?.addEventListener('click', e => {
-      e.preventDefault(); e.stopPropagation();
-      QueueComp.toggle();
+      e.preventDefault(); e.stopPropagation(); QueueComp.toggle();
+    });
+    document.getElementById('fn-queue')?.addEventListener('click', e => {
+      e.preventDefault(); QueueComp.toggle();
+    });
+
+    // Customize panel playerbar toggle (mirrors settings)
+    document.getElementById('cust-playerbar')?.addEventListener('change', function() {
+      const hidden = !this.checked;
+      Customize.set('pb_hidden', hidden);
+      document.body.classList.toggle('pb-hidden', hidden);
+      const pb = document.getElementById('player-bar');
+      if (pb) pb.style.display = hidden ? 'none' : 'flex';
+      const tPb = document.getElementById('t-playerbar');
+      if (tPb) tPb.checked = this.checked;
     });
 
     // AI DJ
@@ -216,43 +229,57 @@ const App = (() => {
 
   /* ── AI DJ ────────────────────────────────────── */
   async function loadAiDj() {
-    const btn=document.getElementById('aidj-play-btn');
-    const list=document.getElementById('aidj-list');
-    if(btn){btn.style.opacity='0.6';btn.style.pointerEvents='none';btn.textContent='Building your mix…';}
+    const btn  = document.getElementById('aidj-play-btn');
+    const list = document.getElementById('aidj-list');
+    if (btn) { btn.style.opacity='0.6'; btn.style.pointerEvents='none'; btn.textContent='Building mix…'; }
 
-    // Try multiple time ranges for seeds
-    let seedTracks='', seedArtists='';
+    // Collect up to 5 seeds total (Spotify max)
+    let seedIds = [];
+
+    // Try short_term → medium_term → long_term → recently played
     for (const range of ['short_term','medium_term','long_term']) {
-      if (!seedTracks) { const t=await API.topTracks(5,range); seedTracks=(t?.items||[]).slice(0,3).map(x=>x.id).filter(Boolean).join(','); }
-      if (!seedArtists){ const a=await API.topArtists(3,range); seedArtists=(a?.items||[]).slice(0,2).map(x=>x.id).filter(Boolean).join(','); }
-      if (seedTracks&&seedArtists) break;
+      if (seedIds.length >= 3) break;
+      const t = await API.topTracks(3, range);
+      const ids = (t?.items||[]).map(x=>x.id).filter(Boolean);
+      ids.forEach(id => { if (!seedIds.includes(id) && seedIds.length < 3) seedIds.push(id); });
     }
-    if (!seedTracks) { const rp=await API.recentlyPlayed(5); seedTracks=(rp?.items||[]).slice(0,3).map(i=>i.track?.id).filter(Boolean).join(','); }
+    if (seedIds.length === 0) {
+      const rp = await API.recentlyPlayed(5);
+      (rp?.items||[]).forEach(i => {
+        if (i.track?.id && !seedIds.includes(i.track.id) && seedIds.length < 3) seedIds.push(i.track.id);
+      });
+    }
 
-    const params={limit:30,target_energy:0.7,target_danceability:0.6};
-    if (seedTracks)  params.seed_tracks=seedTracks;
-    if (seedArtists) params.seed_artists=seedArtists;
-    if (!seedTracks&&!seedArtists) params.seed_genres='pop,rock,hip-hop';
+    console.log('[AI DJ] Using seed_tracks:', seedIds);
 
-    const recs=await API.recommendations(params);
-    if(btn){btn.style.opacity='';btn.style.pointerEvents='';btn.textContent='▶ Play DJ Mix';}
+    if (btn) { btn.style.opacity=''; btn.style.pointerEvents=''; btn.textContent='▶ Play DJ Mix'; }
 
-    if(!recs?.tracks?.length){
-      if(list) list.innerHTML='<div class="empty-msg" style="padding:24px 36px">Could not generate a mix. Try playing a few songs in Spotify first, then come back.</div>';
+    if (seedIds.length === 0) {
+      if (list) list.innerHTML = '<div class="empty-msg" style="padding:24px 36px">No listening history found. Play a few songs in Spotify first, then try again.</div>';
       return;
     }
 
-    // Wire play button to play the mix
-    const newBtn=btn.cloneNode(true);
-    btn.parentNode.replaceChild(newBtn,btn);
-    newBtn.style.opacity=''; newBtn.style.pointerEvents=''; newBtn.textContent='▶ Play DJ Mix';
-    newBtn.addEventListener('click',()=>API.play(Player.getDeviceId(),{uris:recs.tracks.map(t=>t.uri)}));
+    // Simple request - just seeds and limit, no target params that might restrict
+    const recs = await API.recommendations({ seed_tracks: seedIds.join(','), limit: 30 });
+    console.log('[AI DJ] Recommendations result:', recs?.tracks?.length ?? 'none');
 
-    if(list){
-      list.innerHTML=`
+    if (!recs?.tracks?.length) {
+      if (list) list.innerHTML = '<div class="empty-msg" style="padding:24px 36px">Spotify could not generate recommendations. This can happen if your account is very new. Try listening to more music first.</div>';
+      return;
+    }
+
+    const newBtn = btn?.cloneNode(true);
+    if (btn && newBtn) {
+      btn.parentNode.replaceChild(newBtn, btn);
+      newBtn.style.opacity=''; newBtn.style.pointerEvents=''; newBtn.textContent='▶ Play DJ Mix';
+      newBtn.addEventListener('click', () => API.play(Player.getDeviceId(), {uris: recs.tracks.map(t=>t.uri)}));
+    }
+
+    if (list) {
+      list.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:0 36px">
           <h2 class="sec-title">Your AI DJ Mix</h2>
-          <span style="font-size:12px;color:var(--i3)">${recs.tracks.length} tracks · Personalized for you</span>
+          <span style="font-size:12px;color:var(--i3)">${recs.tracks.length} tracks · Based on your listening history</span>
         </div>
         <div class="tlist stagger" style="padding:0 36px">${recs.tracks.map((t,i)=>HomeView.trackRow(t,i,null,true)).join('')}</div>`;
       HomeView.attachTrackEvents(list.querySelector('.tlist'), recs.tracks, null);
@@ -260,11 +287,14 @@ const App = (() => {
     toast('AI DJ mix ready!','ok');
   }
 
+
   /* ── Router ───────────────────────────────────── */
   function navigate(view, id) {
     document.querySelectorAll('.isl-nav-btn[data-view], .fn-btn[data-view]').forEach(el=>{
       el.classList.toggle('active', el.dataset.view===view);
     });
+    // Body class for NP view (hides player bar)
+    document.body.classList.toggle('view-nowplaying', view === 'nowplaying');
     switch(view){
       case 'home':       setView('home');       HomeView.render();                   break;
       case 'search':     setView('search');     SearchView.onShow?.();               break;

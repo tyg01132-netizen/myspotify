@@ -65,8 +65,8 @@ const AudioEngine = (() => {
 
       // Analyser for visualizer
       _analyser = _ctx.createAnalyser();
-      _analyser.fftSize = 512;
-      _analyser.smoothingTimeConstant = 0.82;
+      _analyser.fftSize = 2048;  // Higher = more frequency detail
+      _analyser.smoothingTimeConstant = 0.78;
 
       _gain = _ctx.createGain();
       _gain.gain.value = 1;

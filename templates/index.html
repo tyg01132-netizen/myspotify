@@ -61,9 +61,7 @@
     <div id="musican-name"></div>
     <div id="musican-artist"></div>
   </div>
-  <div id="musican-lyrics-wrap" style="display:none">
-    <div id="musican-lyrics"></div>
-  </div>
+
   <div id="musican-topbar">
     <span id="musican-label">myspotify musican<sup>®</sup></span>
     <button id="musican-mode-btn">🎤 Lyrics</button>
@@ -168,6 +166,7 @@
     <a class="fn-btn" data-view="search" href="#">Search</a>
     <a class="fn-btn" data-view="library" href="#">Library</a>
     <a class="fn-btn" data-view="nowplaying" href="#">Now Playing</a>
+    <a class="fn-btn" id="fn-queue" href="#">Queue</a>
     <a class="fn-btn" data-view="settings" href="#">Settings</a>
   </nav>
 
@@ -351,8 +350,9 @@
           <div class="sg-actions"><button class="btn-primary sg-btn" id="s-save">Save credentials</button></div>
         </div>
 
-        <div class="sg"><div class="sg-hd">Dynamic Island</div>
+        <div class="sg"><div class="sg-hd">Dynamic Island &amp; Player Bar</div>
           <div class="sg-row"><div class="sg-info"><div class="sg-lbl">Enable Dynamic Island</div><div class="sg-desc">When off, shows a classic nav bar instead</div></div><label class="toggle"><input type="checkbox" id="t-island" checked/><span class="toggle-tr"></span></label></div>
+          <div class="sg-row"><div class="sg-info"><div class="sg-lbl">Show Player Bar</div><div class="sg-desc">Bottom bar with controls. Hidden in Now Playing view.</div></div><label class="toggle"><input type="checkbox" id="t-playerbar" checked/><span class="toggle-tr"></span></label></div>
         </div>
 
         <div class="sg"><div class="sg-hd">myspotify musican®</div>
@@ -516,6 +516,7 @@
     </div>
     <div class="cust-sec"><div class="cust-hd">Background</div>
       <div class="cust-rows">
+        <div class="cust-row"><span>Player Bar</span><label class="toggle"><input type="checkbox" id="cust-playerbar" checked/><span class="toggle-tr"></span></label></div>
         <div class="cust-row"><span>Ambient Color</span><label class="toggle"><input type="checkbox" id="cust-ambient" checked/><span class="toggle-tr"></span></label></div>
         <div class="cust-row"><span>Film Grain</span><label class="toggle"><input type="checkbox" id="cust-grain" checked/><span class="toggle-tr"></span></label></div>
       </div>

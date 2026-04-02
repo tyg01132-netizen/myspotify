@@ -255,6 +255,24 @@ const Customize = (() => {
       el.addEventListener('change', () => { set(`hw_${k}`, el.checked); HomeView?.render?.(); });
     });
 
+    // ── Player bar on/off toggle ─────────────────
+    const tPb = document.getElementById('t-playerbar');
+    if (tPb) {
+      tPb.checked = !get('pb_hidden', false);
+      tPb.addEventListener('change', () => {
+        const hidden = !tPb.checked;
+        set('pb_hidden', hidden);
+        document.body.classList.toggle('pb-hidden', hidden);
+        const pb = document.getElementById('player-bar');
+        if (pb) pb.style.display = hidden ? 'none' : 'flex';
+      });
+    }
+    if (get('pb_hidden', false)) {
+      document.body.classList.add('pb-hidden');
+      const pb = document.getElementById('player-bar');
+      if (pb) pb.style.display = 'none';
+    }
+
     // ── Player bar element toggles ────────────────
     applyPlayerBarToggles();
     const pbToggles = [

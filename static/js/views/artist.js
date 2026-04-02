@@ -126,7 +126,7 @@ const ArtistView = (() => {
           const img2=API.imgUrl(a.images,200);
           return `<div class="mcard" data-rel-id="${a.id}">
             ${img2?`<img class="mcard-img mcard-img-r" src="${img2}" alt="" loading="lazy"/>` :'<div class="mcard-img mcard-img-r"></div>'}
-            <div class="mc-body"><div class="mc-name">${e(a.name)}</div><div class="mc-sub">${(a.followers?.total||0).toLocaleString()} followers</div></div>
+            <div class="mc-body"><div class="mc-name">${e(a.name)}</div><div class="mc-sub">${a.followers?.total > 0 ? a.followers.total.toLocaleString() + " followers" : (a.genres?.[0] || "Artist")}</div></div>
             <div class="mc-play"><svg width="15" height="15" viewBox="0 0 24 24" fill="black"><polygon points="5 3 19 12 5 21"/></svg></div>
           </div>`;
         }).join('')}</div>

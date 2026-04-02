@@ -86,56 +86,40 @@ const HomeView = (() => {
     const sections = [];
 
     if (show('discover')||show('daily')) {
+      // Fetch all playlists owned by Spotify
       const allPls = await API.myPlaylists(50);
       const myPls  = allPls?.items || [];
+      const spotifyPls = myPls.filter(p => p.owner?.id === 'spotify');
 
       if (show('discover')) {
-        // Works in any language — "Discover Weekly" / "Ontdek de week" / etc.
-        // Spotify always owns these playlists with owner spotify
-        const dw = myPls.find(p =>
-          p.owner?.id === 'spotify' &&
-          (p.name?.toLowerCase().includes('discover') ||
-           p.name?.toLowerCase().includes('ontdek') ||
-           p.name?.toLowerCase().includes('weekly') ||
-           p.name?.toLowerCase().includes('week'))
-        );
-        const rr = myPls.find(p =>
-          p.owner?.id === 'spotify' &&
-          (p.name?.toLowerCase().includes('release') ||
-           p.name?.toLowerCase().includes('radar') ||
-           p.name?.toLowerCase().includes('nieuw'))
-        );
-        const spotifyPls = [dw, rr].filter(Boolean);
-        if (spotifyPls.length) sections.push({title:'Your Weekly Mix', items: spotifyPls, type:'card-row'});
+        // Discover Weekly, Release Radar — any language
+        const weekly = spotifyPls.filter(p =>
+          /discover|weekly|ontdek|woche|descubrir|décou/i.test(p.name) ||
+          /release|radar|nuevos|nieuws/i.test(p.name)
+        ).slice(0, 4);
+        if (weekly.length) sections.push({title:'Your Weekly Mixes', items: weekly, type:'card-row'});
       }
 
       if (show('daily')) {
-        // Daily mixes — match localized: "Daily Mix 1" / "Dagelijkse mix 1" / etc.
-        const dm = myPls.filter(p =>
-          p.owner?.id === 'spotify' && (
-            /daily mix/i.test(p.name) ||
-            /dagelijkse mix/i.test(p.name) ||
-            /mix du jour/i.test(p.name) ||
-            /täglicher mix/i.test(p.name) ||
-            /mezcla diaria/i.test(p.name) ||
-            /mix \d/i.test(p.name)
-          )
+        // Daily Mixes — any language (look for "mix" + digit)
+        const daily = spotifyPls.filter(p =>
+          /mix\s*\d|daily|dagelijkse|täglich|quotidien|diario/i.test(p.name)
         ).slice(0, 6);
-        if (dm.length) sections.push({title:'Daily Mixes', items: dm, type:'card-row'});
+        if (daily.length) sections.push({title:'Daily Mixes', items: daily, type:'card-row'});
       }
 
-      // Spotify-curated "Made for you" type playlists
-      const madeForYou = myPls.filter(p =>
-        p.owner?.id === 'spotify' && (
-          /on repeat/i.test(p.name) ||
-          /repeat rewind/i.test(p.name) ||
-          /time capsule/i.test(p.name) ||
-          /summer rewind/i.test(p.name) ||
-          /your top songs/i.test(p.name) ||
-          /jouw top/i.test(p.name)
-        )
-      ).slice(0, 4);
-      if (madeForYou.length) sections.push({title:'Made For You', items: madeForYou, type:'card-row'});
+      // Made For You
+      const mfy = spotifyPls.filter(p =>
+        /on repeat|repeat rewind|time capsule|top songs|jouw top|summer|rewind/i.test(p.name)
+      ).slice(0, 6);
+      if (mfy.length) sections.push({title:'Made For You', items: mfy, type:'card-row'});
+
+      // Any remaining Spotify playlists not yet shown
+      const shown = [...(sections.find(s=>s.title==='Your Weekly Mixes')?.items||[]),
+                     ...(sections.find(s=>s.title==='Daily Mixes')?.items||[]),
+                     ...(sections.find(s=>s.title==='Made For You')?.items||[])];
+      const rest = spotifyPls.filter(p => !shown.find(s=>s.id===p.id)).slice(0, 8);
+      if (rest.length) sections.push({title:'More From Spotify', items: rest, type:'card-row'});
     }
 
     if (show('toptracks')&&topTracks?.items?.length) {
@@ -196,7 +180,7 @@ const HomeView = (() => {
           const img=API.imgUrl(a.images,200);
           return `<div class="mcard" data-id="${a.id}">
             ${img?`<img class="mcard-img mcard-img-r" src="${img}" alt="" loading="lazy"/>` :'<div class="mcard-img mcard-img-r"></div>'}
-            <div class="mc-body"><div class="mc-name">${API.esc(a.name)}</div><div class="mc-sub">${(a.followers?.total||0).toLocaleString()} followers</div></div>
+            <div class="mc-body"><div class="mc-name">${API.esc(a.name)}</div><div class="mc-sub">${a.followers?.total > 0 ? a.followers.total.toLocaleString() + " followers" : (a.genres?.[0] || "Artist")}</div></div>
             <div class="mc-play"><svg width="15" height="15" viewBox="0 0 24 24" fill="black"><polygon points="5 3 19 12 5 21"/></svg></div>
           </div>`;
         }).join('')}</div>`;
@@ -227,9 +211,14 @@ const HomeView = (() => {
       <div class="tr-info"><div class="tr-name">${API.esc(track.name)}</div><div class="tr-sub">${artists}</div></div>
       ${showAlbum?`<div class="tr-album">${API.esc(track.album?.name||'')}</div>`:'<div></div>'}
       <div class="tr-dur">${API.ms2t(track.duration_ms||0)}</div>
-      <button class="tr-more" data-tid="${track.id||''}" data-turi="${track.uri||''}" data-name="${API.esc(track.name||'')}">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-      </button>
+      <div class="tr-actions">
+        <button class="tr-q-btn" data-turi="${track.uri||''}" title="Add to queue">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </button>
+        <button class="tr-more" data-tid="${track.id||''}" data-turi="${track.uri||''}" data-name="${API.esc(track.name||'')}">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+        </button>
+      </div>
     </div>`;
   }
 
@@ -249,6 +238,15 @@ const HomeView = (() => {
       btn.addEventListener('click', e => {
         e.stopPropagation();
         App.showCtxMenu(e, btn.dataset.tid, btn.dataset.turi, btn.dataset.name);
+      });
+    });
+    container.querySelectorAll('.tr-q-btn').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.stopPropagation();
+        if (!btn.dataset.turi) return;
+        await API.addToQueue(btn.dataset.turi);
+        App.toast('Added to queue ✓', 'ok');
+        QueueComp?.load();
       });
     });
     container.querySelectorAll('.alink').forEach(el => {

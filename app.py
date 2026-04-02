@@ -1,17 +1,15 @@
-import os, json, time, secrets, threading, webbrowser, requests, urllib.parse
+import os, json, time, secrets, threading, webbrowser, requests, urllib.parse, socket
 from flask import Flask, render_template, request, jsonify, session, redirect
 
-VERSION           = "2.5.2"
-GITHUB_REPO       = "tyg01132-netizen/myspotify"
-SETTINGS_FILE     = "settings.json"
-SPOTIFY_AUTH_URL  = "https://accounts.spotify.com/authorize"
-SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
-REDIRECT_URI      = "http://myspotify/callback"
-REDIRECT_FALLBACK = "http://127.0.0.1:5001/callback"
+VERSION        = "2.5.2"
+GITHUB_REPO    = "tyg01132-netizen/myspotify"
+SETTINGS_FILE  = "settings.json"
+AUTH_URL       = "https://accounts.spotify.com/authorize"
+TOKEN_URL      = "https://accounts.spotify.com/api/token"
+REDIRECT_URI   = "http://127.0.0.1:5001/callback"
 
 SCOPES = " ".join([
-    "streaming",
-    "user-read-email", "user-read-private",
+    "streaming", "user-read-email", "user-read-private",
     "user-library-read", "user-library-modify",
     "user-read-playback-state", "user-modify-playback-state",
     "user-read-currently-playing", "user-read-recently-played",
@@ -43,9 +41,9 @@ app.secret_key = get_or_create_secret()
 
 def save_tokens(access, refresh, expires_in=3600):
     s = load_settings()
-    s["_access_token"] = access
+    s["_access_token"]  = access
     s["_refresh_token"] = refresh
-    s["_token_expiry"] = int(time.time()) + expires_in - 60
+    s["_token_expiry"]  = int(time.time()) + expires_in - 60
     save_settings(s)
 
 def load_tokens():
@@ -63,9 +61,9 @@ def get_valid_token():
     if time.time() < expiry: return access, None
     if not refresh: return None, "no_refresh"
     s = load_settings()
-    resp = requests.post(SPOTIFY_TOKEN_URL, data={
+    resp = requests.post(TOKEN_URL, data={
         "grant_type": "refresh_token", "refresh_token": refresh,
-        "client_id": s.get("client_id",""), "client_secret": s.get("client_secret",""),
+        "client_id": s.get("client_id", ""), "client_secret": s.get("client_secret", ""),
     })
     if resp.status_code != 200: clear_tokens(); return None, "refresh_failed"
     d = resp.json()
@@ -85,19 +83,12 @@ def check_for_update():
         )
         if resp.status_code == 200:
             d = resp.json()
-            _latest_version = d.get("tag_name","").lstrip("v")
-            _update_url = d.get("html_url","")
-            for asset in d.get("assets",[]):
+            _latest_version = d.get("tag_name", "").lstrip("v")
+            _update_url = d.get("html_url", "")
+            for asset in d.get("assets", []):
                 if asset["name"].endswith(".exe"):
                     _update_url = asset["browser_download_url"]; break
     except: pass
-
-def get_redirect_uri():
-    try:
-        import socket
-        if socket.gethostbyname("myspotify") == "127.0.0.1": return REDIRECT_URI
-    except: pass
-    return REDIRECT_FALLBACK
 
 # Routes
 @app.route("/")
@@ -110,10 +101,10 @@ def callback():
     if error: return redirect("/?auth_error=" + error)
     if not code: return redirect("/?auth_error=no_code")
     s = load_settings()
-    resp = requests.post(SPOTIFY_TOKEN_URL, data={
+    resp = requests.post(TOKEN_URL, data={
         "grant_type": "authorization_code", "code": code,
-        "redirect_uri": get_redirect_uri(),
-        "client_id": s.get("client_id",""), "client_secret": s.get("client_secret",""),
+        "redirect_uri": REDIRECT_URI,
+        "client_id": s.get("client_id", ""), "client_secret": s.get("client_secret", ""),
     })
     if resp.status_code != 200: return redirect(f"/?auth_error=token_failed_{resp.status_code}")
     d = resp.json()
@@ -123,7 +114,11 @@ def callback():
 @app.route("/api/settings", methods=["GET"])
 def api_get_settings():
     s = load_settings()
-    return jsonify({"client_id": s.get("client_id",""), "has_secret": bool(s.get("client_secret")), "configured": bool(s.get("client_id") and s.get("client_secret"))})
+    return jsonify({
+        "client_id": s.get("client_id", ""),
+        "has_secret": bool(s.get("client_secret")),
+        "configured": bool(s.get("client_id") and s.get("client_secret")),
+    })
 
 @app.route("/api/settings", methods=["POST"])
 def api_post_settings():
@@ -137,14 +132,19 @@ def api_auth_login():
     s = load_settings(); cid = s.get("client_id")
     if not cid: return jsonify({"error": "no_client_id"}), 400
     state = secrets.token_urlsafe(16); session["oauth_state"] = state
-    params = {"client_id": cid, "response_type": "code", "redirect_uri": get_redirect_uri(), "scope": SCOPES, "state": state, "show_dialog": "false"}
-    return jsonify({"url": SPOTIFY_AUTH_URL + "?" + urllib.parse.urlencode(params)})
+    params = {
+        "client_id": cid, "response_type": "code",
+        "redirect_uri": REDIRECT_URI, "scope": SCOPES,
+        "state": state, "show_dialog": "false",
+    }
+    return jsonify({"url": AUTH_URL + "?" + urllib.parse.urlencode(params)})
 
 @app.route("/api/auth/logout", methods=["POST"])
 def api_auth_logout(): clear_tokens(); session.clear(); return jsonify({"ok": True})
 
 @app.route("/api/auth/status")
-def api_auth_status(): t, e = get_valid_token(); return jsonify({"logged_in": bool(t and not e)})
+def api_auth_status():
+    t, e = get_valid_token(); return jsonify({"logged_in": bool(t and not e)})
 
 @app.route("/api/auth/token")
 def api_auth_token():
@@ -157,31 +157,36 @@ def api_auth_refresh():
     _, refresh, _ = load_tokens()
     if not refresh: return jsonify({"error": "no_refresh_token"}), 401
     s = load_settings()
-    resp = requests.post(SPOTIFY_TOKEN_URL, data={"grant_type": "refresh_token", "refresh_token": refresh, "client_id": s.get("client_id",""), "client_secret": s.get("client_secret","")})
+    resp = requests.post(TOKEN_URL, data={
+        "grant_type": "refresh_token", "refresh_token": refresh,
+        "client_id": s.get("client_id", ""), "client_secret": s.get("client_secret", ""),
+    })
     if resp.status_code != 200: clear_tokens(); return jsonify({"error": "refresh_failed"}), 401
-    d = resp.json(); save_tokens(d["access_token"], d.get("refresh_token", refresh), d.get("expires_in", 3600))
+    d = resp.json()
+    save_tokens(d["access_token"], d.get("refresh_token", refresh), d.get("expires_in", 3600))
     return jsonify({"access_token": d["access_token"]})
 
 @app.route("/api/version")
 def api_version():
-    return jsonify({"current": VERSION, "latest": _latest_version, "update_url": _update_url, "has_update": bool(_latest_version and _latest_version != VERSION)})
+    return jsonify({
+        "current": VERSION, "latest": _latest_version,
+        "update_url": _update_url,
+        "has_update": bool(_latest_version and _latest_version != VERSION),
+    })
 
 if __name__ == "__main__":
     s = load_settings()
-    print(f"\n{'='*52}\n   myspotify musican® — v{VERSION}\n{'='*52}")
+    print(f"\n{'='*54}\n   myspotify musican® v{VERSION}\n{'='*54}")
     print(f"   Credentials : {'✓ saved' if s.get('client_id') else '✗ not set'}")
     print(f"   Login       : {'✓ logged in' if s.get('_access_token') else '○ login required'}")
-    print(f"   URL         : http://myspotify  (or http://127.0.0.1:5001)")
-    print(f"{'='*52}\n   Press Ctrl+C to stop\n")
+    print(f"   Redirect URI: {REDIRECT_URI}")
+    print(f"   URL         : http://127.0.0.1:5001")
+    print(f"{'='*54}\n   Ctrl+C to stop\n")
 
     threading.Thread(target=check_for_update, daemon=True).start()
 
     def open_browser():
         time.sleep(1.2)
-        try:
-            import socket
-            if socket.gethostbyname("myspotify") == "127.0.0.1": webbrowser.open("http://myspotify"); return
-        except: pass
         webbrowser.open("http://127.0.0.1:5001")
     threading.Thread(target=open_browser, daemon=True).start()
 

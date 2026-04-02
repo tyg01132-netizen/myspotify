@@ -88,7 +88,15 @@ const API = (() => {
   const categories = () => get('/browse/categories?limit=30');
   const featuredPlaylists = () => get('/browse/featured-playlists?limit=10');
   const newReleases = () => get('/browse/new-releases?limit=12');
-  const recommendations = p => { const qs=Object.entries(p).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&'); return get(`/recommendations?${qs}`); };
+  // recommendations: seed values must NOT have encoded commas
+  const recommendations = p => {
+    const qs = Object.entries(p).map(([k,v]) => {
+      // Seeds are comma-separated IDs — don't encode the commas
+      const isSeed = k.startsWith('seed_');
+      return `${k}=${isSeed ? String(v) : encodeURIComponent(v)}`;
+    }).join('&');
+    return get(`/recommendations?${qs}`);
+  };
   const audioFeatures = id => get(`/audio-features/${id}`);
 
   // Playback
